@@ -1,0 +1,18 @@
+# Single container for Code Engine: MongoDB and the Express API run together,
+# because Code Engine apps only expose HTTP and cannot share a separate Mongo container.
+FROM node:18-bullseye-slim AS node
+
+FROM mongo:7.0
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+
+WORKDIR /api
+COPY package.json .
+RUN npm install
+COPY app.js review.js dealership.js inventory.js ./
+COPY data/dealerships.json data/reviews.json ./
+
+ENV MONGO_URL=mongodb://127.0.0.1:27017/
+EXPOSE 3030
+CMD ["bash", "-c", "mongod --bind_ip 127.0.0.1 --fork --logpath /tmp/mongod.log && node app.js"]
